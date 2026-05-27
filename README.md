@@ -1,11 +1,13 @@
 # GEI-NJ
 
-GEI-NJ provides helper functions for processing SNV ratio/depth `AnnData` objects,
+**GEI-NJ: gene expression informed neighbor-joining tree construction from single-cell and spatial transcriptomic profiles**
+
+GEI-NJ provides functions for processing SNV ratio/depth `AnnData` objects,
 plotting PCA projections, and constructing neighbor-joining trees from PCA
 information.
 
 <div align="center">
-    <img src='./share/Schematic_of_GEI-NJ.png' width=1000> 
+    <img src='./assets/Schematic_of_GEI-NJ.png' width=1000> 
 </div>
 
 ## Installation
