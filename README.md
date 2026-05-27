@@ -2,17 +2,13 @@
 
 GEI-NJ provides helper functions for processing SNV ratio/depth `AnnData` objects,
 plotting PCA projections, and constructing neighbor-joining trees from PCA
-coordinates.
+information.
+
+<div align="center">
+    <img src='./share/Schematic_of_GEI-NJ.png' width=1000> 
+</div>
 
 ## Installation
-
-Install locally while developing:
-
-```bash
-pip install -e .
-```
-
-Install directly from GitHub after publishing:
 
 ```bash
 pip install git+https://github.com/RuiyingChenBioinfo/GEI-NJ.git
@@ -48,15 +44,7 @@ tree = build_and_plot_nj(adata, group_key="group")
   and imputation helpers.
 - `gei_nj.construct_nj`: PCA plotting and neighbor-joining tree construction.
 
-## Publishing To GitHub
+## Contact
 
-From this folder:
-
-```bash
-git init
-git add .
-git commit -m "Package GEI-NJ utilities"
-git branch -M main
-git remote add origin https://github.com/RuiyingChenBioinfo/GEI-NJ.git
-git push -u origin main
-```
+* Ruiying Chen (陈睿颖), <chenruiying@genomics.cn>
+* Chao Qin (秦超), <qinchao@genomics.cn>
