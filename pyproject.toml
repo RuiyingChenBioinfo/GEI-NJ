@@ -34,9 +34,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-username/gei-nj"
-Repository = "https://github.com/your-username/gei-nj"
-Issues = "https://github.com/your-username/gei-nj/issues"
+Homepage = "https://github.com/RuiyingChenBioinfo/GEI-NJ"
+Repository = "https://github.com/RuiyingChenBioinfo/GEI-NJ"
+Issues = "https://github.com/RuiyingChenBioinfo/GEI-NJ/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]

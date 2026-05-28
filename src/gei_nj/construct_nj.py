@@ -27,9 +27,9 @@ def plot_snv_pca_by_group(
     group_by=None,
     group_colors=None,
     legend_loc="best",
-    savepath=None,       
-    dpi=300,              
-    bbox_inches="tight",  
+    savepath=None,
+    dpi=300,
+    bbox_inches="tight",
 ):
     """
     Scatter plot of two PCs colored by a specified obs column (or uncolored if group_by=None).

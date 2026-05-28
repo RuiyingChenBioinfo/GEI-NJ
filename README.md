@@ -1,14 +1,14 @@
 # GEI-NJ
 
-**GEI-NJ: gene expression informed neighbor-joining tree construction from single-cell and spatial transcriptomic profiles**
+## GEI-NJ: Gene expression-informed neighbor-joining tree construction
 
 <div align="center">
-    <img src='./assets/Schematic_of_GEI-NJ.png' width=1000> 
+    <img src="./assets/Schematic_of_GEI-NJ.png" width="1000">
 </div>
 
-GEI-NJ provides functions for processing SNV ratio/depth `AnnData` objects,
-plotting PCA projections, and constructing neighbor-joining trees from PCA
-information.
+GEI-NJ provides functions for processing SNV ratio/depth `AnnData` objects, plotting PCA projections, and constructing neighbor-joining trees from PCA-derived features.
+
+Note: GEI-NJ does not perform SNV calling. If SNV calling is required, please first use [LineMut Build](https://github.com/RuiyingChenBioinfo/LineMut) or another suitable SNV-calling workflow to generate SNV ratio and depth `AnnData` inputs for GEI-NJ.
 
 ## Requirements
 
@@ -22,7 +22,6 @@ Required Python packages:
 - numpy
 - pandas
 - scipy
-
 
 ## Installation
 
