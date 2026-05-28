@@ -45,7 +45,7 @@ def filt_snv_by_depth_ratio(
     import pandas as pd
     import scipy.sparse as sp
 
-    # ---- checks ----
+    # checks before running
     if depth_layer not in adata.layers:
         raise KeyError(f"Missing '{depth_layer}' in adata.layers.")
     depth = adata.layers[depth_layer]
@@ -55,7 +55,7 @@ def filt_snv_by_depth_ratio(
     # depth could be per-cell (n_obs,) or (n_obs, 1), or per-cell-per-var (n_obs, n_vars)
     per_cell = (getattr(depth, "ndim", 2) == 1) or (hasattr(depth, "shape") and len(depth.shape) == 2 and depth.shape[1] == 1)
 
-    # ---- total depth per SNV ----
+    # total depth per SNV
     if per_cell:
         d = np.asarray(depth.toarray()).ravel() if sp.issparse(depth) else np.asarray(depth).ravel()
         denom_scalar = float(d.sum())
@@ -72,7 +72,7 @@ def filt_snv_by_depth_ratio(
 
         snv_depth_sums = pd.Series(snv_depth_arr.astype(float, copy=False), index=adata.var_names)
 
-    # ---- mutated reads sums: sum_i X_ij * D_ij  (only compute if needed for min_mut_depth or min_mut_avg_ratio) ----
+    # mutated reads sums: sum_i X_ij * D_ij  (only compute if needed for min_mut_depth or min_mut_avg_ratio)
     need_num = (float(min_mut_depth) > 0) or (float(min_mut_avg_ratio) > 0)
 
     if need_num:
@@ -102,7 +102,7 @@ def filt_snv_by_depth_ratio(
     else:
         snv_mut_sums = pd.Series(np.zeros(adata.n_vars, dtype=float), index=adata.var_names)
 
-    # ---- weighted average ratio per SNV (same as weighted_per_var) ----
+    # weighted average ratio per SNV (same as weighted_per_var)
     if float(min_mut_avg_ratio) > 0:
         if per_cell:
             denom = float(snv_depth_sums.iloc[0])  # scalar
@@ -125,7 +125,7 @@ def filt_snv_by_depth_ratio(
         # not used in mask
         mut_avg_ratio = None
 
-    # ---- build mask ----
+    # build mask
     mask = (snv_depth_sums >= float(min_tot_depth))
 
     if float(min_mut_depth) > 0:
@@ -376,6 +376,7 @@ def add_callable_layer(
         print(f"Global callable fraction: {global_callable_fraction:.4f}")
 
     return ad
+
 
 def impute_non_callable_by_snv_mean(
     adata,

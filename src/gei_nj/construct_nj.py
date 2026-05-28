@@ -1,7 +1,7 @@
 def get_pcs(adata):
     """Return (PC matrix, cell name list).
 
-    First try adata.obsm['X_pca'] (shape: n_cells × n_pcs).
+    First try adata.obsm['X_pca'] (shape: n_cells x n_pcs).
     If it does not exist, try adata.uns['pca']['X'].
     If neither is available, raise a KeyError.
     """
