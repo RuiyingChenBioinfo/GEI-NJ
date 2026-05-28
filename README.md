@@ -59,6 +59,10 @@ tree = build_and_plot_nj(adata, group_key="group")
   and imputation helpers.
 - `gei_nj.construct_nj`: PCA plotting and neighbor-joining tree construction.
 
+## Citations
+
+GEI-NJ is currently under peer review. A formal citation will be added here upon publication.
+
 ## Contact
 
 * Ruiying Chen (陈睿颖), <chenruiying@genomics.cn>
