@@ -6,7 +6,7 @@
     <img src="./assets/Schematic_of_GEI-NJ.png" width="1000">
 </div>
 
-GEI-NJ provides functions for processing SNV ratio/depth `AnnData` objects, plotting PCA projections, and constructing neighbor-joining trees from PCA-derived features.
+GEI-NJ provides functions for processing SNV depth/ratio `AnnData` objects, plotting PCA projections, and constructing neighbor-joining trees from PCA-derived features.
 
 **Note:** GEI-NJ does not perform SNV calling. If SNV calling is required, please first use [LineMut Call](https://github.com/RuiyingChenBioinfo/LineMut) or other suitable SNV-calling workflows to generate SNV ratio and depth `AnnData` inputs for GEI-NJ.
 
@@ -135,7 +135,7 @@ tree = build_and_plot_nj(
 )
 ```
 
-### Main outputs
+### Processed AnnData structure
 
 After preprocessing, the processed `AnnData` object contains several GEI-NJ related matrices:
 
