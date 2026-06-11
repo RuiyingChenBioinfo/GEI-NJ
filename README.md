@@ -61,10 +61,6 @@ ad_ratio = ad.read_h5ad("unit_ratio.h5ad")
 # The sequencing depth matrix is stored in adata.layers["depth"]
 adata = comb_depth_ratio(ad_depth, ad_ratio)
 
-# Provide a group annotation for tree coloring
-# Here, each observation is treated as one cell group or spatial unit
-adata.obs["group"] = adata.obs_names.astype(str)
-
 # Filter SNVs based on sequencing depth and mutation support
 adata = filt_snv_by_depth_ratio(
     adata,
