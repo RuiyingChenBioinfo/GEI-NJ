@@ -28,7 +28,12 @@ Required Python packages:
 ```bash
 pip install git+https://github.com/RuiyingChenBioinfo/GEI-NJ.git
 ```
-
+or
+```bash
+git clone https://github.com/RuiyingChenBioinfo/GEI-NJ.git
+cd GEI-NJ
+pip install -e .
+```
 
 ## Usage
 
