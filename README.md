@@ -1,6 +1,6 @@
 # GEI-NJ
 
-## GEI-NJ: gene expression informed neighbor-joining tree construction for cell lineage inference from single-cell and spatial transcriptomic sequencing profiles
+## GEI-NJ: gene-expression-informed neighbor-joining tree construction for cell lineage inference from single-cell and spatial transcriptomic sequencing profiles
 
 <div align="center">
     <img src="./assets/Schematic_of_GEI-NJ.png" width="1000">
