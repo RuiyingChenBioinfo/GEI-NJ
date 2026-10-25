@@ -1,444 +1,253 @@
-def comb_depth_ratio(ad_depth, ad_ratio):
-    """
-    Combine SNV depth (ad_depth) and ratio (ad_ratio) into a single AnnData.
-
-    Parameters
-    ----------
-    ad_depth : AnnData
-        Depth data. Must cover the same obs/var as ad_ratio.
-    ad_ratio : AnnData
-        SNV ratio data. Values must be in [0, 1].
-
-    Returns
-    -------
-    AnnData
-        Copy of ad_ratio with depth stored in layers["depth"].
-    """
+def _dense(values):
     import numpy as np
     from scipy import sparse
 
-    X = ad_ratio.X
-    if sparse.issparse(X):
-        data = X.data
-    else:
-        data = X
+    return np.asarray(values.toarray() if sparse.issparse(values) else values, dtype=float)
 
-    if np.nanmin(data) < 0 or np.nanmax(data) > 1:
-        raise ValueError("Ratio data should be in [0,1]")
 
+def _depth_ratio(adata, depth_layer="total_depth", warn_nan=False):
+    import warnings
+    import numpy as np
+
+    if not adata.obs_names.is_unique or not adata.var_names.is_unique:
+        raise ValueError("Cell and SNV names must be unique.")
+    if depth_layer not in adata.layers:
+        raise KeyError(f"Missing '{depth_layer}' in adata.layers.")
+    depth = _dense(adata.layers[depth_layer])
+    ratio = _dense(adata.X)
+    if not np.isfinite(depth).all() or (depth < 0).any() or (depth != np.floor(depth)).any():
+        raise ValueError("Depth must contain finite, non-negative integer counts; NaN is not allowed.")
+    if np.isinf(ratio).any() or ((ratio < 0) | (ratio > 1)).any():
+        raise ValueError("SNV ratios must be in [0, 1]; infinity is not allowed.")
+    covered = depth > 0
+    if np.isnan(ratio[covered]).any():
+        raise ValueError("NaN ratios at positive depth are not allowed; provide the observed ALT/depth ratio.")
+    if ((~covered) & np.isfinite(ratio) & (ratio != 0)).any():
+        raise ValueError("At zero depth, SNV ratios must be 0 or NaN to represent missing observations.")
+    n_missing = int((np.isnan(ratio) & ~covered).sum())
+    if warn_nan and n_missing:
+        warnings.warn(f"{n_missing} NaN ratio entries at zero depth are treated as missing.",
+                      UserWarning, stacklevel=3)
+    return depth, ratio
+
+
+def _clear_processed_layers(adata, clear_state=False):
+    settings = adata.uns.pop("geinj_zero_filling", {})
+    layers = {"callable", "zero_filled_state"}
+    layers.update(settings[key] for key in ["callable_layer", "output_layer"] if key in settings)
+    if clear_state:
+        state = adata.uns.pop("geinj_state", {})
+        layers.update(["state", state.get("layer_name", "state")])
+    for layer in layers:
+        if layer in adata.layers:
+            del adata.layers[layer]
+
+
+def comb_depth_ratio(ad_depth, ad_ratio):
+    """Combine matched ratio and depth AnnData objects, aligning their names.
+
+    Ratios are raw ALT/depth values. Zero-depth ratios may be 0 or NaN;
+    NaN ratios at positive depth and non-finite depths are rejected.
+    The returned copy keeps raw ratios in X and stores a total_depth layer.
+    """
+    for adata in [ad_depth, ad_ratio]:
+        if not adata.obs_names.is_unique or not adata.var_names.is_unique:
+            raise ValueError("Cell and SNV names must be unique.")
+    if (set(ad_depth.obs_names) != set(ad_ratio.obs_names)
+            or set(ad_depth.var_names) != set(ad_ratio.var_names)):
+        raise ValueError("Depth and ratio inputs must contain the same cell and SNV names.")
     adata = ad_ratio.copy()
-    r = ad_depth[adata.obs_names, adata.var_names]
-    adata.layers["depth"] = r.X
-
+    adata.layers["total_depth"] = ad_depth[adata.obs_names, adata.var_names].X.copy()
+    _depth_ratio(adata, warn_nan=not adata.uns.get("geinj_input_checked", False))
+    adata.uns["geinj_input_checked"] = True
     return adata
 
 
-def filt_snv_by_depth_ratio(
+def _identify_germline(depth, ratio, min_callable_cells_germline, min_pooled_ratio_germline, min_E_germline):
+    import numpy as np
+    from scipy.special import logsumexp
+
+    callable_sites = depth > 0
+    all_alt = callable_sites & (ratio == 1.)
+    n_callable = callable_sites.sum(axis=0)
+    failures = n_callable - all_alt.sum(axis=0)
+    total_depth = depth.sum(axis=0)
+    alt = np.where(callable_sites, ratio, 0.) * depth
+    pooled_ratio = np.divide(alt.sum(axis=0), total_depth,
+        out=np.full(depth.shape[1], np.nan), where=total_depth > 0)
+    upper = (np.log1p(depth) * all_alt).sum(axis=0)
+    log_e = np.full(depth.shape[1], np.nan)
+    threshold = np.log(min_E_germline) - 1e-12
+    selected = np.flatnonzero((n_callable >= min_callable_cells_germline) & (upper >= threshold))
+    nodes, weights = np.polynomial.legendre.leggauss(64)
+    lam = (nodes + 1.) / 2.
+    logweights = np.log(weights / 2.) + 3. * np.log(lam)
+    logweights -= logsumexp(logweights)
+    for start in range(0, len(selected), 512):
+        idx = selected[start:start + 512]
+        site_depth, success = depth[:, idx], all_alt[:, idx]
+        components = np.empty((len(lam), len(idx)))
+        for j, value in enumerate(lam):
+            components[j] = ((np.log1p(value * site_depth) * success).sum(axis=0)
+                + failures[idx] * np.log1p(-value) + logweights[j])
+        perfect = np.where(failures[idx] == 0, upper[idx], -np.inf)
+        log_e[idx] = np.logaddexp(perfect, logsumexp(components, axis=0)) - np.log(2.)
+    return (n_callable >= min_callable_cells_germline) & (
+        (pooled_ratio >= min_pooled_ratio_germline) | (log_e >= threshold))
+
+
+def filter_snvs(
     adata,
-    min_tot_depth=20,
-    min_mut_depth=0,
-    min_mut_avg_ratio=0,
-    x_layer=None,
-    depth_layer="depth",
+    min_total_depth=5,
+    remove_germline=True,
+    min_callable_cells_germline=3,
+    min_pooled_ratio_germline=0.90,
+    min_E_germline=10.,
+    exclude_snvs=None,
+    depth_layer="total_depth",
+    copy=True,
+    verbose=True,
 ):
+    """Filter SNVs by total depth, germline evidence and an optional TSV list.
+
+    Germline candidates require min_callable_cells_germline entries with depth > 0,
+    and either pooled ALT ratio >= min_pooled_ratio_germline or E >= min_E_germline.
+    exclude_snvs is a one-column, headerless TSV of exact SNV identifiers.
+    Filtering uses raw ratios in X and clears previously processed layers.
+    Germline thresholds apply only when remove_germline=True.
+    """
     import numpy as np
     import pandas as pd
-    import scipy.sparse as sp
 
-    # checks before running
-    if depth_layer not in adata.layers:
-        raise KeyError(f"Missing '{depth_layer}' in adata.layers.")
-    depth = adata.layers[depth_layer]
-
-    X = adata.layers[x_layer] if x_layer is not None else adata.X
-
-    # depth could be per-cell (n_obs,) or (n_obs, 1), or per-cell-per-var (n_obs, n_vars)
-    per_cell = (getattr(depth, "ndim", 2) == 1) or (hasattr(depth, "shape") and len(depth.shape) == 2 and depth.shape[1] == 1)
-
-    # total depth per SNV
-    if per_cell:
-        d = np.asarray(depth.toarray()).ravel() if sp.issparse(depth) else np.asarray(depth).ravel()
-        denom_scalar = float(d.sum())
-        # treat D_ij = d_i for all j (consistent with weighted_per_var per_cell branch)
-        snv_depth_sums = pd.Series(np.full(adata.n_vars, denom_scalar, dtype=float), index=adata.var_names)
+    if not np.isfinite(min_total_depth) or min_total_depth < 1 or min_total_depth != int(min_total_depth):
+        raise ValueError("min_total_depth must be a positive integer.")
+    if remove_germline:
+        if (not np.isfinite(min_callable_cells_germline) or min_callable_cells_germline < 1
+                or min_callable_cells_germline != int(min_callable_cells_germline)):
+            raise ValueError("min_callable_cells_germline must be a positive integer.")
+        if not np.isfinite(min_pooled_ratio_germline) or not 0 <= min_pooled_ratio_germline <= 1:
+            raise ValueError("min_pooled_ratio_germline must be in [0, 1].")
+        if not np.isfinite(min_E_germline) or min_E_germline <= 0:
+            raise ValueError("min_E_germline must be finite and positive.")
+    depth, ratio = _depth_ratio(adata, depth_layer,
+                              warn_nan=not adata.uns.get("geinj_input_checked", False))
+    enough_depth = depth.sum(axis=0) >= min_total_depth
+    germline = (_identify_germline(depth, ratio, min_callable_cells_germline,
+                                   min_pooled_ratio_germline, min_E_germline)
+                if remove_germline else np.zeros(adata.n_vars, dtype=bool))
+    user_sites = set()
+    if exclude_snvs is not None:
+        table = pd.read_csv(exclude_snvs, sep="\t", header=None, dtype=str, keep_default_na=False)
+        if table.shape[1] != 1:
+            raise ValueError("exclude_snvs must be a one-column TSV without a header.")
+        user_sites = set(table.iloc[:, 0])
+    user_remove = adata.var_names.isin(user_sites)
+    keep = enough_depth & ~germline & ~user_remove
+    diagnostics = dict(min_total_depth=int(min_total_depth), remove_germline=bool(remove_germline),
+        min_callable_cells_germline=int(min_callable_cells_germline),
+        min_pooled_ratio_germline=float(min_pooled_ratio_germline), min_E_germline=float(min_E_germline),
+        n_sites_input=adata.n_vars, n_sites_retained=int(keep.sum()),
+        n_low_total_depth_sites_removed=int((~enough_depth).sum()),
+        n_germline_candidates_removed=int((enough_depth & germline).sum()),
+        n_user_snvs_matched=int(user_remove.sum()),
+        n_user_snvs_removed=int((enough_depth & ~germline & user_remove).sum()),
+        n_user_snvs_unmatched=len(user_sites - set(adata.var_names)))
+    if copy:
+        ad = adata[:, keep].copy()
     else:
-        if sp.issparse(depth):
-            snv_depth_arr = np.asarray(depth.sum(axis=0)).ravel()
-        else:
-            snv_depth_arr = np.asarray(depth).sum(axis=0)
-
-        if snv_depth_arr.shape[0] != adata.n_vars:
-            raise ValueError("Depth matrix's number of columns does not match adata.var_names.")
-
-        snv_depth_sums = pd.Series(snv_depth_arr.astype(float, copy=False), index=adata.var_names)
-
-    # mutated reads sums: sum_i X_ij * D_ij  (only compute if needed for min_mut_depth or min_mut_avg_ratio)
-    need_num = (float(min_mut_depth) > 0) or (float(min_mut_avg_ratio) > 0)
-
-    if need_num:
-        if per_cell:
-            d = np.asarray(depth.toarray()).ravel() if sp.issparse(depth) else np.asarray(depth).ravel()
-            if sp.issparse(X):
-                num = np.asarray(X.multiply(d[:, None]).sum(axis=0)).ravel()
-            else:
-                num = (np.asarray(X) * d[:, None]).sum(axis=0)
-            num = num.astype(float, copy=False)
-        else:
-            if sp.issparse(X) and sp.issparse(depth):
-                num = np.asarray(X.multiply(depth).sum(axis=0)).ravel()
-            elif sp.issparse(X) and not sp.issparse(depth):
-                # sparse X elementwise-multiply dense depth is supported
-                num = np.asarray(X.multiply(np.asarray(depth)).sum(axis=0)).ravel()
-            elif (not sp.issparse(X)) and sp.issparse(depth):
-                num = np.asarray(depth.multiply(np.asarray(X)).sum(axis=0)).ravel()
-            else:
-                num = (np.asarray(X) * np.asarray(depth)).sum(axis=0)
-            num = num.astype(float, copy=False)
-
-        if num.shape[0] != adata.n_vars:
-            raise ValueError("Mutated reads matrix's number of columns does not match adata.var_names.")
-
-        snv_mut_sums = pd.Series(num, index=adata.var_names)
-    else:
-        snv_mut_sums = pd.Series(np.zeros(adata.n_vars, dtype=float), index=adata.var_names)
-
-    # weighted average ratio per SNV (same as weighted_per_var)
-    if float(min_mut_avg_ratio) > 0:
-        if per_cell:
-            denom = float(snv_depth_sums.iloc[0])  # scalar
-            mut_avg_ratio = np.divide(
-                snv_mut_sums.to_numpy(),
-                denom,
-                out=np.full(adata.n_vars, np.nan, dtype=float),
-                where=(denom != 0),
-            )
-        else:
-            denom = snv_depth_sums.to_numpy()
-            mut_avg_ratio = np.divide(
-                snv_mut_sums.to_numpy(),
-                denom,
-                out=np.full(adata.n_vars, np.nan, dtype=float),
-                where=(denom != 0),
-            )
-        mut_avg_ratio = pd.Series(mut_avg_ratio, index=adata.var_names)
-    else:
-        # not used in mask
-        mut_avg_ratio = None
-
-    # build mask
-    mask = (snv_depth_sums >= float(min_tot_depth))
-
-    if float(min_mut_depth) > 0:
-        mask &= (snv_mut_sums >= float(min_mut_depth))
-
-    if float(min_mut_avg_ratio) > 0:
-        mask &= (mut_avg_ratio >= float(min_mut_avg_ratio))
-
-    snv_to_keep = snv_depth_sums.index[mask]
-
-    print(f"SNV number before filter: {adata.n_vars}")
-    print(f"SNV number after filter: {len(snv_to_keep)}")
-
-    return adata[:, snv_to_keep].copy()
-
-
-def filt_adata_by_mutation_nnz(
-    adata,
-    min_nnz: int = 2,
-    binarize_nonzero_to_one: bool = False,
-    to_csr: bool = True,
-    verbose: bool = True,
-):
-    """
-    Filter AnnData columns (mutations) by the number of non-zero entries per column,
-    and optionally binarize all non-zero values to 1.
-
-    Parameters
-    ----------
-    adata : AnnData
-        Input AnnData object (cells x mutations) stored in adata.X.
-    min_nnz : int, default=2
-        Keep columns that have at least `min_nnz` non-zero entries.
-    binarize_nonzero_to_one : bool, default=False
-        If True, convert any non-zero value (e.g., 0.5 or 1) to 1.
-        Note: for sparse matrices, this sets ALL stored data entries to 1.0,
-        matching the original behavior (including the rare case of explicitly stored zeros).
-    to_csr : bool, default=True
-        If True and the resulting matrix is sparse, convert it to CSR format.
-    verbose : bool, default=True
-        If True, print basic stats and how many columns are kept.
-
-    Returns
-    -------
-    adata_filt : AnnData
-        A filtered copy of the input AnnData.
-    """
-    import numpy as np
-    import scipy.sparse as sp
-
-    X = adata.X
-    n_cells, n_muts = adata.n_obs, adata.n_vars
-
-    # 1) Compute per-column nnz on the original matrix (no full copy)
-    if sp.issparse(X):
-        # Fast paths for common formats
-        if sp.isspmatrix_csr(X):
-            # Count occurrences of each column index in CSR indices
-            nnz_per_gene = np.bincount(X.indices, minlength=n_muts)
-        elif sp.isspmatrix_csc(X):
-            # In CSC, indptr encodes nnz per column
-            nnz_per_gene = np.diff(X.indptr)
-        else:
-            nnz_per_gene = np.asarray(X.getnnz(axis=0)).ravel()
-
-        nonzero_total = int(X.nnz)
-    else:
-        nnz_per_gene = np.count_nonzero(X, axis=0)
-        nonzero_total = int(np.count_nonzero(X))
-
-    keep_mask = nnz_per_gene >= int(min_nnz)
-    n_keep = int(keep_mask.sum())
-
+        adata._inplace_subset_var(keep)
+        ad = adata
+    _clear_processed_layers(ad, clear_state=True)
+    ad.uns["geinj_input_checked"] = True
+    ad.uns["geinj_filter"] = diagnostics
     if verbose:
-        total_entries = n_cells * n_muts
-        ratio = nonzero_total / total_entries if total_entries else float("nan")
-        print(f"Input shape: {n_cells} cells x {n_muts} mutations")
-        print(f"Non-zero ratio: {ratio:.6g}")
-        print(f"Number of kept mutations (nnz>={min_nnz}): {n_keep}")
-
-        # Same optional diagnostics as your original implementation
-        if sp.issparse(X):
-            vals = X.data
-            count_1 = int(np.count_nonzero(np.isclose(vals, 1.0)))
-            count_05 = int(np.count_nonzero(np.isclose(vals, 0.5)))
-            print(f"Original sparse data counts: 1.0 -> {count_1}, 0.5 -> {count_05}")
-
-    # 2) Slice AnnData once (avoid double slicing X)
-    adata_filt = adata[:, keep_mask].copy()
-
-    # 3) Optional binarization on the filtered submatrix only
-    if binarize_nonzero_to_one:
-        if sp.issparse(adata_filt.X):
-            # Match original behavior: set ALL stored data entries to 1.0
-            adata_filt.X.data[:] = 1.0
-        else:
-            adata_filt.X = (adata_filt.X != 0).astype(np.float32)
-
-    # 4) Convert to CSR only if requested and needed
-    if to_csr and sp.issparse(adata_filt.X) and (not sp.isspmatrix_csr(adata_filt.X)):
-        adata_filt.X = adata_filt.X.tocsr()
-
-    return adata_filt
-
-
-def revise_snv_ratio(
-    adata,
-    layer_name="original_ratio",
-    low=0.1,
-    high=0.9,
-    mid=0.5,
-    copy=True,
-    dtype="float32",
-):
-    """
-    1) Copy adata.X into a new layer (default: "original_ratio").
-    2) Discretize adata.X in-place (or on a copy) using configurable thresholds:
-         - values < low   -> 0
-         - values > high  -> 1
-         - otherwise      -> mid
-       Note: values exactly equal to low/high fall into the "otherwise" bucket.
-
-    Parameters
-    ----------
-    adata : AnnData
-        Input AnnData object.
-    layer_name : str
-        Name of the layer that will store the original (pre-discretization) X.
-    low : float
-        Lower threshold.
-    high : float
-        Upper threshold.
-    mid : float
-        Value assigned to entries within [low, high] (inclusive).
-    copy : bool
-        If True, operate on a copy and return it; if False, modify the input adata in-place.
-    dtype : str or numpy dtype
-        Output dtype for dense X and the stored original layer (dense). Sparse keeps its dtype.
-
-    Returns
-    -------
-    AnnData
-        AnnData containing layers[layer_name] = original X, and modified X.
-    """
-    import numpy as np
-    from scipy import sparse
-
-    if low > high:
-        raise ValueError(f"`low` must be <= `high`. Got low={low}, high={high}.")
-
-    ad = adata.copy() if copy else adata
-
-    X = ad.X
-
-    # Store the original X into a new layer
-    if sparse.issparse(X):
-        ad.layers[layer_name] = X.copy()
-        M = X.tocsr(copy=True)
-        data = M.data
-
-        mask_low = data < low
-        mask_high = data > high
-        mask_mid = (~mask_low) & (~mask_high)
-
-        data[mask_low] = 0.0
-        data[mask_high] = 1.0
-        data[mask_mid] = float(mid)
-
-        M.eliminate_zeros()
-        ad.X = M
-    else:
-        ad.layers[layer_name] = np.array(X, copy=True).astype(dtype, copy=False)
-
-        arr = np.array(X, copy=True)
-        out = np.full(arr.shape, float(mid), dtype=dtype)
-        out[arr < low] = 0.0
-        out[arr > high] = 1.0
-
-        ad.X = out
-
+        print(f"SNV number before filter: {diagnostics['n_sites_input']}")
+        print(f"SNV number after filter: {ad.n_vars}")
+        if exclude_snvs is not None:
+            print(f"User-defined SNVs matched: {diagnostics['n_user_snvs_matched']}; "
+                  f"not present: {diagnostics['n_user_snvs_unmatched']}")
     return ad
 
 
-def add_callable_layer(
+def assign_state(
     adata,
-    min_callable_depth=3,
-    depth_layer="depth",
-    callable_layer="callable",
+    method="binary",
+    state_low=0.01,
+    layer_name="state",
+    depth_layer="total_depth",
     copy=True,
-    dtype="int8",
-    verbose=True,
 ):
-    """
-    Add a binary callable layer to an AnnData object.
+    """Assign binary ALT states or continuous ratios without changing X.
 
-    A CMB x SNV entry is considered callable if its sequencing depth is greater
-    than or equal to min_callable_depth.
+    binary assigns 1 to ratios >= state_low and 0 to lower ratios.
+    continuous uses the original ratios and ignores state_low.
+    layer_name stores temporary states; zero-depth entries remain missing.
+    zero_filling consumes this layer and stores the filled states separately.
     """
     import numpy as np
-    import scipy.sparse as sp
 
-    if depth_layer not in adata.layers:
-        raise KeyError(f"Missing '{depth_layer}' in adata.layers.")
-
+    if method not in ["binary", "continuous"]:
+        raise ValueError("method must be 'binary' or 'continuous'.")
+    if method == "binary" and (not np.isfinite(state_low) or not 0 < state_low <= 1):
+        raise ValueError("state_low must be in (0, 1].")
+    depth, ratio = _depth_ratio(adata, depth_layer,
+                              warn_nan=not adata.uns.get("geinj_input_checked", False))
     ad = adata.copy() if copy else adata
-    depth = ad.layers[depth_layer]
-
-    if sp.issparse(depth):
-        callable_mat = depth.copy().tocsr()
-        callable_mat.data = (callable_mat.data >= min_callable_depth).astype(dtype)
-        callable_mat.eliminate_zeros()
-
-        callable_total = int(callable_mat.sum())
-        n_total = callable_mat.shape[0] * callable_mat.shape[1]
-
-    else:
-        depth_arr = np.asarray(depth)
-
-        if depth_arr.ndim == 1:
-            depth_arr = depth_arr[:, None]
-
-        if depth_arr.shape[1] == 1 and ad.n_vars > 1:
-            callable_mat = np.repeat(
-                depth_arr >= min_callable_depth,
-                ad.n_vars,
-                axis=1,
-            ).astype(dtype)
-        else:
-            if depth_arr.shape != ad.shape:
-                raise ValueError(
-                    f"Depth layer shape {depth_arr.shape} does not match adata shape {ad.shape}."
-                )
-
-            callable_mat = (depth_arr >= min_callable_depth).astype(dtype)
-
-        callable_total = int(callable_mat.sum())
-        n_total = callable_mat.shape[0] * callable_mat.shape[1]
-
-    ad.layers[callable_layer] = callable_mat
-
-    global_callable_fraction = callable_total / n_total if n_total > 0 else float("nan")
-
-    if verbose:
-        print(f"Callable layer added to adata.layers['{callable_layer}']")
-        print(f"Minimum callable depth: {min_callable_depth}")
-        print(f"Total SNV entries: {n_total}")
-        print(f"Callable SNV entries: {callable_total}")
-        print(f"Global callable fraction: {global_callable_fraction:.4f}")
-
+    _clear_processed_layers(ad, clear_state=True)
+    values = ratio.copy()
+    observed = depth > 0
+    values[~observed] = np.nan
+    if method == "binary":
+        values[observed] = (values[observed] >= state_low).astype(float)
+    ad.layers[layer_name] = values
+    ad.uns["geinj_input_checked"] = True
+    ad.uns["geinj_state"] = dict(method=method, layer_name=layer_name)
+    if method == "binary":
+        ad.uns["geinj_state"]["state_low"] = float(state_low)
     return ad
 
 
-def impute_non_callable_by_snv_mean(
+def zero_filling(
     adata,
+    min_callable_depth=1,
+    depth_layer="total_depth",
     callable_layer="callable",
-    output_layer="geinj_state_imputed",
+    output_layer="zero_filled_state",
     copy=True,
-    dtype="float32",
     verbose=True,
 ):
-    """
-    Impute non-callable entries in revised SNV state matrix by the per-SNV mean
-    calculated from callable entries.
+    """Fill non-callable states with zero, retaining callable values and raw X.
 
-    This function assumes adata.X contains revised SNV states, such as 0, 0.5,
-    and 1, and adata.layers[callable_layer] contains binary callability.
+    Read the temporary layer created by assign_state and remove it after
+    writing output_layer. Re-run assign_state before changing the threshold.
     """
     import numpy as np
-    import scipy.sparse as sp
 
-    if callable_layer not in adata.layers:
-        raise KeyError(f"Missing adata.layers['{callable_layer}'].")
-
+    if (not np.isfinite(min_callable_depth) or min_callable_depth < 1
+            or min_callable_depth != int(min_callable_depth)):
+        raise ValueError("min_callable_depth must be a positive integer.")
+    depth, _ = _depth_ratio(adata, depth_layer,
+                          warn_nan=not adata.uns.get("geinj_input_checked", False))
+    state_layer = adata.uns.get("geinj_state", {}).get("layer_name", "state")
+    if state_layer not in adata.layers:
+        raise KeyError(f"Missing '{state_layer}' in adata.layers; run assign_state before zero_filling.")
+    values = _dense(adata.layers[state_layer]).copy()
+    if not np.isfinite(values[depth > 0]).all():
+        raise ValueError("State values at positive depth must be finite; NaN cannot be silently filled.")
+    if ((values < 0) | (values > 1)).any():
+        raise ValueError("State values must be in [0, 1].")
     ad = adata.copy() if copy else adata
-
-    X = ad.X.toarray() if sp.issparse(ad.X) else np.asarray(ad.X)
-    C = ad.layers[callable_layer]
-    C = C.toarray() if sp.issparse(C) else np.asarray(C)
-
-    X = X.astype(dtype, copy=True)
-    C = C.astype(bool, copy=False)
-
-    if X.shape != C.shape:
-        raise ValueError(
-            f"Shape mismatch: adata.X has shape {X.shape}, "
-            f"but callable layer has shape {C.shape}."
-        )
-
-    X_masked = X.copy()
-    X_masked[~C] = np.nan
-
-    snv_mean = np.nanmean(X_masked, axis=0)
-
-    global_mean = np.nanmean(X_masked)
-    snv_mean = np.where(np.isnan(snv_mean), global_mean, snv_mean)
-
-    missing_i, missing_j = np.where(~C)
-    X_masked[missing_i, missing_j] = snv_mean[missing_j]
-
-    X_imputed = X_masked.astype(dtype, copy=False)
-
-    ad.layers[output_layer] = X_imputed
-    ad.X = X_imputed
-
+    _clear_processed_layers(ad)
+    callable_sites = depth >= min_callable_depth
+    values[~callable_sites] = 0.
+    ad.layers[callable_layer] = callable_sites.astype("int8")
+    ad.layers[output_layer] = values
+    if state_layer != output_layer:
+        del ad.layers[state_layer]
+    ad.uns["geinj_input_checked"] = True
+    ad.uns["geinj_zero_filling"] = dict(min_callable_depth=int(min_callable_depth),
+        callable_layer=callable_layer, output_layer=output_layer)
     if verbose:
-        n_total = X.size
-        n_non_callable = int((~C).sum())
-        n_callable = int(C.sum())
-        print(f"Non-callable entries imputed by per-SNV callable mean")
-        print(f"Callable entries: {n_callable}")
-        print(f"Non-callable entries: {n_non_callable}")
-        print(f"Total SNV entries: {n_total}")
-        print(f"Imputed matrix stored in adata.layers['{output_layer}']")
-        print(f"adata.X was updated to the imputed matrix")
-
+        print(f"Callable SNV entries: {int(callable_sites.sum())}")
+        print(f"Non-callable entries filled with zero: {int((~callable_sites).sum())}")
     return ad

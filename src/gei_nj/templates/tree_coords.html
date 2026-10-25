@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tree coordinates</title>
+<style>
+:root{--ink:#192b3a;--muted:#6a7884;--line:#dfe5e9;--accent:#45687f;--soft:#e9f4f4}
+*{box-sizing:border-box}body{margin:0;background:#f5f7f8;color:var(--ink);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}button,input{font:inherit}button{border:1px solid #cfd9de;border-radius:7px;background:#fff;color:var(--ink);padding:7px 12px;cursor:pointer}button:hover{background:#f0f5f6;border-color:#a6bcc4}button:focus-visible{outline:3px solid #8cc8cf;outline-offset:2px}.primary{background:var(--accent);color:white;border-color:var(--accent);font-weight:600}.primary:hover{background:var(--accent)}.small{font-size:12px;padding:4px 9px}.shell{max-width:1440px;margin:auto;padding:24px 32px}.legend{display:flex;gap:16px;flex-wrap:wrap;justify-content:flex-end;align-items:center;margin-bottom:18px;font-size:12px}.legend span{display:flex;align-items:center;gap:6px}.swatch{width:10px;height:10px;border-radius:50%;display:inline-block}.unselected-swatch{border:1px solid #e1e5e8}.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}.tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.selection-count{font-variant-numeric:tabular-nums;display:inline-flex;gap:8px;align-items:center;color:var(--accent);background:var(--soft);border:1px solid #cce4e5;border-radius:7px;padding:6px 12px}.selection-count strong{font-size:17px}.checkbox{display:inline-flex;gap:5px;align-items:center;font-size:12px;cursor:pointer;white-space:nowrap}.checkbox input{accent-color:var(--accent)}.point-size{display:inline-flex;align-items:center;gap:5px;font-size:12px;white-space:nowrap}.point-size input{width:62px;padding:3px 5px;border:1px solid #cfd9de;border-radius:5px;color:var(--ink)}
+.grid{display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1.2fr);gap:16px}.card{background:white;border:1px solid var(--line);border-radius:12px;overflow:hidden}.card-top{padding:14px 17px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #edf0f2;min-height:60px;gap:10px;flex-wrap:wrap}.card-title{font-size:16px;font-weight:650}.view{height:584px;position:relative}.canvas{height:100%;overflow:auto}.view svg{display:block;width:100%;height:100%;touch-action:none;user-select:none}.view-tools{position:absolute;right:12px;bottom:11px;display:flex;gap:4px}.view-tools button{background:#fffffff0;padding:2px 9px;font-size:15px}.panel-foot{padding:9px 16px;border-top:1px solid #edf0f2;color:var(--muted);font-size:11px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.node-hit,.point{cursor:pointer}.node-hit:focus{outline:none}.node-hit:focus .node-mark{stroke:#d29330;stroke-width:3}.tip-label{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:10.5px}.point:focus{outline:none;stroke:var(--ink);stroke-width:2.5}.axis-text{font-size:10px;fill:#000000}.axis-label{font-size:12px;fill:#000000}.selection-bar{margin-top:14px;padding:12px 16px;background:white;border:1px solid var(--line);border-radius:9px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-height:52px}.selection-title{font-size:12px;color:var(--muted)}.chip{font-size:12px;background:var(--soft);color:var(--accent);border:1px solid #cce4e5;border-radius:5px;padding:3px 8px;display:inline-flex;align-items:center;gap:9px}.chip button{border:0;padding:0;background:transparent;color:var(--accent);font-size:16px;line-height:1}.status{font-size:12px;margin-top:8px;min-height:20px;color:var(--accent)}.tooltip{position:fixed;z-index:20;background:#203746f2;color:white;padding:9px 12px;border-radius:7px;box-shadow:0 5px 18px #15283430;pointer-events:none;font-size:12px;white-space:pre-line;max-width:340px}.tooltip[hidden]{display:none}
+@media(max-width:980px){.grid{grid-template-columns:1fr}.shell{padding:18px}.legend{justify-content:flex-start}.view{height:560px}}@media(max-width:520px){.shell{padding:12px}.toolbar>.tools{gap:6px}.card-top{padding:12px}.view{height:460px}.panel-foot{padding:9px 12px}.selection-count{font-size:12px}button{padding:6px 9px;font-size:12px}}
+</style>
+</head>
+<body>
+<main class="shell">
+  <div class="legend" id="legend" aria-label="Cell groups"></div>
+  <div class="toolbar">
+    <div class="tools"><div class="selection-count"><strong id="selected-count"></strong><span id="selection-total"></span></div><button id="select-all">Select all</button><button id="clear-selection">Clear</button><label class="checkbox"><input type="checkbox" id="additive">Add to selection</label></div>
+    <div class="tools"><button id="download-ids">Export selected IDs</button><button class="primary" id="save-html">Save current HTML ↓</button></div>
+  </div>
+  <div class="grid">
+    <section class="card" aria-label="Rooted tree">
+      <div class="card-top"><div class="card-title">Rooted tree</div><div class="tools"><label class="checkbox"><input type="checkbox" id="branch-lengths">Use branch lengths</label><label class="checkbox"><input type="checkbox" id="hide-tip-names">Hide tip names</label></div></div>
+      <div class="view"><div class="canvas" id="tree-canvas"><svg id="tree-svg" aria-label="Select a node to highlight its descendant tips" role="group"></svg></div><div class="view-tools"><button data-zoom="tree:in" title="Zoom in">+</button><button data-zoom="tree:out" title="Zoom out">−</button><button data-zoom="tree:reset" title="Reset tree view">Reset</button></div></div>
+      <div class="panel-foot"><span>Click nodes · Shift to add · Drag to pan</span><span id="tree-mode"></span></div>
+    </section>
+    <section class="card" aria-label="Tip coordinates">
+      <div class="card-top"><div class="card-title">Tip coordinates</div><div class="tools"><label class="point-size">Point size <input type="number" id="point-size" min="0" step="any" title="Point radius in plot units"></label><label class="checkbox"><input type="checkbox" id="flip-x">Flip X</label><label class="checkbox"><input type="checkbox" id="flip-y">Flip Y</label><label class="checkbox"><input type="checkbox" id="swap-xy">Swap X/Y</label></div></div>
+      <div class="view"><svg id="coords-svg" aria-label="Select a point to locate its tree tip" role="group"></svg><div class="view-tools"><button data-zoom="coords:in" title="Zoom in">+</button><button data-zoom="coords:out" title="Zoom out">−</button><button data-zoom="coords:reset" title="Reset coordinate view">Reset</button></div></div>
+      <div class="panel-foot"><span>Equal X/Y scale · Scroll to zoom · Drag to pan</span></div>
+    </section>
+  </div>
+  <div class="selection-bar"><span class="selection-title">Selection</span><div class="tools" id="selection-chips"></div></div>
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+</main>
+<div class="tooltip" id="tooltip" hidden></div>
+<script type="application/json" id="tree-data">__GEINJ_DATA__</script>
+<script type="application/json" id="view-state">__GEINJ_STATE__</script>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const DATA = JSON.parse($('tree-data').textContent), state = JSON.parse($('view-state').textContent);
+  const NS = 'http://www.w3.org/2000/svg';
+  const nodes=[],tips=[],byId=new Map(),descendants=new Map(),depth=new Map(),height=new Map(),tipIndex=new Map();
+  function indexTree(n,d=0){
+    nodes.push(n);byId.set(n.id,n);depth.set(n.id,d);
+    if(n.children){n.children.forEach(c=>indexTree(c,d+c.length));descendants.set(n.id,n.children.flatMap(c=>descendants.get(c.id)));height.set(n.id,1+Math.max(...n.children.map(c=>height.get(c.id))));}
+    else{tipIndex.set(n.id,tips.length);tips.push(n);descendants.set(n.id,[n.tip_id]);height.set(n.id,0);}
+  }
+  indexTree(DATA.tree);
+  const circular=DATA.layout==='circular',treeHeight=circular?600:Math.max(600,tips.length*17+64);
+  const baseViews={tree:[0,0,circular?600:500,treeHeight],coords:[0,0,600,600]};
+  const svgs={tree:$('tree-svg'),coords:$('coords-svg')};
+  if(!circular){svgs.tree.style.height=treeHeight+'px';svgs.tree.style.minWidth='500px';}
+  if(!state.views)state.views=Object.fromEntries(Object.entries(baseViews).map(([k,v])=>[k,[...v]]));
+  $('selection-total').textContent='/ '+tips.length+' tips selected';
+  const color=n=>DATA.tip_colors[n.tip_id],label=n=>n.tip_id===undefined?n.label:n.tip_id;
+  const selectedTips=()=>new Set(state.selected.flatMap(id=>descendants.get(id)));
+  function el(tag,attrs={},text=null){const e=document.createElementNS(NS,tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));if(text!==null)e.textContent=text;return e;}
+  function xy(n){const v=DATA.coords[n.tip_id];return state.swapXY?[v[1],v[0]]:v;}
+  function axisLabels(){return state.swapXY?[DATA.labels[1],DATA.labels[0]]:DATA.labels;}
+  function pick(id,e={}){
+    if(e.shiftKey||state.additive)state.selected=state.selected.includes(id)?state.selected.filter(x=>x!==id):[...state.selected,id];
+    else state.selected=[id];
+    $('tooltip').hidden=true;$('status').textContent='';render();
+  }
+  function showTooltip(e,n){
+    const t=$('tooltip');
+    if(n.children)t.textContent=label(n)+'\nDescendant tips: '+descendants.get(n.id).length;
+    else{const v=xy(n),a=axisLabels();t.textContent=label(n)+'\n'+a[0]+': '+v[0]+'   '+a[1]+': '+v[1]+'\nRoot-to-tip distance: '+depth.get(n.id).toPrecision(5);}
+    t.hidden=false;const r=t.getBoundingClientRect();t.style.left=Math.max(8,Math.min(e.clientX+14,innerWidth-r.width-10))+'px';t.style.top=Math.max(8,Math.min(e.clientY+14,innerHeight-r.height-10))+'px';
+  }
+  function bindPick(e,n){
+    e.addEventListener('click',ev=>{ev.stopPropagation();pick(n.id,ev);});
+    e.addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();pick(n.id,ev);}});
+    e.addEventListener('pointermove',ev=>showTooltip(ev,n));e.addEventListener('pointerleave',()=>{$('tooltip').hidden=true;});
+  }
+  function renderTree(selected){
+    const svg=svgs.tree;svg.replaceChildren();
+    const x=new Map(),y=new Map(),bounds=new Map();
+    function place(n){
+      if(n.children){n.children.forEach(place);bounds.set(n.id,[bounds.get(n.children[0].id)[0],bounds.get(n.children[n.children.length-1].id)[1]]);y.set(n.id,n.children.reduce((s,c)=>s+y.get(c.id),0)/n.children.length);}
+      else{y.set(n.id,tipIndex.get(n.id));bounds.set(n.id,[y.get(n.id),y.get(n.id)]);}
+      x.set(n.id,state.branchLengths?depth.get(n.id):height.get(DATA.tree.id)-height.get(n.id));
+      if(DATA.layout==='triangular'){
+        const b=bounds.get(n.id);
+        if(!state.branchLengths){x.set(n.id,tips.length-1-(b[1]-b[0]));y.set(n.id,(b[0]+b[1])/2);}
+        else if(n.children)y.set(n.id,(bounds.get(n.children[0].id)[1]+bounds.get(n.children[n.children.length-1].id)[0])/2);
+      }
+    }
+    place(DATA.tree);
+    const maxX=Math.max(...x.values())||1,subtree=new Set();
+    function mark(n){subtree.add(n.id);if(n.children)n.children.forEach(mark);}
+    state.selected.forEach(id=>mark(byId.get(id)));
+    const point=new Map(),angle=new Map();
+    nodes.forEach(n=>{
+      if(circular){const a=-Math.PI/2+2*Math.PI*y.get(n.id)/tips.length,r=205*x.get(n.id)/maxX;angle.set(n.id,a);point.set(n.id,[300+r*Math.cos(a),300+r*Math.sin(a)]);}
+      else point.set(n.id,[38+310*x.get(n.id)/maxX,32+y.get(n.id)*(treeHeight-100)/Math.max(1,tips.length-1)]);
+    });
+    const branches=el('g'),marks=el('g');svg.append(branches,marks);
+    nodes.forEach(n=>{
+      const [nx,ny]=point.get(n.id),active=subtree.has(n.id);
+      if(n.children){
+        if(DATA.layout==='rectangular'){
+          const ys=n.children.map(c=>point.get(c.id)[1]);branches.append(el('line',{x1:nx,x2:nx,y1:Math.min(...ys),y2:Math.max(...ys),stroke:active?'#244956':'#c8d1d8','stroke-width':active?2:1.2}));
+        }else if(circular){
+          const r=205*x.get(n.id)/maxX,angles=n.children.map(c=>angle.get(c.id)),a=Math.min(...angles),b=Math.max(...angles);
+          if(r>0)branches.append(el('path',{d:`M${300+r*Math.cos(a)},${300+r*Math.sin(a)} A${r},${r} 0 ${b-a>Math.PI?1:0} 1 ${300+r*Math.cos(b)},${300+r*Math.sin(b)}`,fill:'none',stroke:active?'#244956':'#c8d1d8','stroke-width':active?2:1.2}));
+        }
+        n.children.forEach(c=>{
+          const [cx,cy]=point.get(c.id);let start=[nx,ny];
+          if(DATA.layout==='rectangular')start=[nx,cy];
+          if(circular){const r=205*x.get(n.id)/maxX,a=angle.get(c.id);start=[300+r*Math.cos(a),300+r*Math.sin(a)];}
+          branches.append(el('line',{x1:start[0],y1:start[1],x2:cx,y2:cy,stroke:c.children?(subtree.has(c.id)?'#244956':'#c8d1d8'):color(c),'stroke-width':subtree.has(c.id)?2.3:1.2}));
+        });
+      }
+      const chosen=state.selected.includes(n.id),g=el('g',{class:'node-hit','data-node-id':n.id,tabindex:0,role:'button','aria-label':label(n)+', '+descendants.get(n.id).length+' tips','aria-pressed':String(chosen)});
+      if(!n.children)g.setAttribute('data-tip-id',n.tip_id);
+      if(chosen&&n.children)g.append(el('circle',{cx:nx,cy:ny,r:9,fill:'#d8eeee'}));
+      g.append(el('circle',{class:'node-mark',cx:nx,cy:ny,r:n.children?(chosen?5:3.2):(selected.has(n.tip_id)?3.6:2.5),fill:n.children?(chosen?'var(--accent)':'white'):color(n),stroke:n.children?'#738894':'white','stroke-width':1}));
+      if(!n.children&&!state.hideTipNames){
+        const attrs={class:'tip-label',fill:color(n),'font-weight':selected.has(n.tip_id)?700:400};
+        if(circular){const a=angle.get(n.id),left=Math.cos(a)<0,deg=a*180/Math.PI;Object.assign(attrs,{x:nx+9*Math.cos(a),y:ny+9*Math.sin(a),dy:3,'text-anchor':left?'end':'start',transform:`rotate(${deg+(left?180:0)} ${nx+9*Math.cos(a)} ${ny+9*Math.sin(a)})`});}
+        else Object.assign(attrs,{x:nx+10,y:ny+3.5});
+        g.append(el('text',attrs,n.tip_id));
+      }
+      g.append(el('circle',{class:'node-target',cx:nx,cy:ny,r:n.children?9:7,fill:'transparent'}));bindPick(g,n);marks.append(g);
+    });
+    $('tree-mode').textContent=state.branchLengths?'Branch lengths':'Topology view';
+  }
+  function renderCoords(selected){
+    const svg=svgs.coords;svg.replaceChildren();
+    const values=tips.map(xy),xs=values.map(v=>v[0]),ys=values.map(v=>v[1]);
+    const cx=(Math.min(...xs)+Math.max(...xs))/2,cy=(Math.min(...ys)+Math.max(...ys))/2;
+    const span=Math.max(Math.max(...xs)-Math.min(...xs),Math.max(...ys)-Math.min(...ys),1)*1.25,lowX=cx-span/2,lowY=cy-span/2;
+    const sx=v=>state.flipX?540-(v-lowX)*480/span:60+(v-lowX)*480/span;
+    const sy=v=>state.flipY?60+(v-lowY)*480/span:540-(v-lowY)*480/span;
+    for(let i=0;i<=4;i++){
+      const px=60+i*120,py=60+i*120;
+      svg.append(el('line',{x1:px,x2:px,y1:60,y2:540,stroke:'#eff2f4'}),el('line',{x1:60,x2:540,y1:py,y2:py,stroke:'#eff2f4'}));
+      svg.append(el('text',{x:px,y:559,class:'axis-text','text-anchor':'middle'},(state.flipX?lowX+span-i*span/4:lowX+i*span/4).toPrecision(4)));
+      svg.append(el('text',{x:48,y:py+3,class:'axis-text','text-anchor':'end'},(state.flipY?lowY+i*span/4:lowY+span-i*span/4).toPrecision(4)));
+    }
+    svg.append(el('path',{d:'M60,60V540H540',fill:'none',stroke:'#000000'}));
+    const labels=axisLabels();
+    svg.append(el('text',{x:300,y:585,class:'axis-label','text-anchor':'middle'},labels[0]),el('text',{x:16,y:300,class:'axis-label','text-anchor':'middle',transform:'rotate(-90 16 300)'},labels[1]));
+    const background=el('g',{'data-layer':'background'}),foreground=el('g',{'data-layer':'highlight'});svg.append(background,foreground);
+    tips.forEach(n=>{
+      const v=xy(n),active=selected.has(n.tip_id),p=el('circle',{class:'point','data-cell-id':n.tip_id,'data-selected':String(active),cx:sx(v[0]),cy:sy(v[1]),r:state.pointSize,fill:active?color(n):'#e0e0e0',stroke:active?'white':'#e1e5e8','stroke-width':active?1.2:.65,tabindex:0,role:'button','aria-label':n.tip_id,'aria-pressed':String(active)});
+      bindPick(p,n);(active?foreground:background).append(p);
+    });
+  }
+  function renderChips(selected){
+    $('selected-count').textContent=selected.size;const holder=$('selection-chips');holder.replaceChildren();
+    if(!state.selected.length){const s=document.createElement('span');s.textContent='No selection';s.className='selection-title';holder.append(s);}
+    state.selected.forEach(id=>{
+      const n=byId.get(id),s=document.createElement('span');s.className='chip';s.append(document.createTextNode(label(n)+' · '+descendants.get(id).length+' tips'));
+      const b=document.createElement('button');b.textContent='×';b.setAttribute('aria-label','Remove '+label(n));b.addEventListener('click',()=>{state.selected=state.selected.filter(x=>x!==id);render();});s.append(b);holder.append(s);
+    });
+  }
+  function applyViews(){Object.entries(svgs).forEach(([k,s])=>s.setAttribute('viewBox',state.views[k].join(' ')));}
+  function render(){const selected=selectedTips();renderTree(selected);renderCoords(selected);renderChips(selected);applyViews();}
+  function zoom(key,factor){const v=state.views[key],base=baseViews[key],w=Math.max(base[2]/12,Math.min(base[2]*2,v[2]*factor)),h=w*base[3]/base[2];state.views[key]=[v[0]+(v[2]-w)/2,v[1]+(v[3]-h)/2,w,h];applyViews();$('tooltip').hidden=true;}
+  Object.entries(svgs).forEach(([key,svg])=>{
+    svg.addEventListener('wheel',e=>{if(key==='tree'&&!e.ctrlKey)return;e.preventDefault();zoom(key,e.deltaY>0?1.12:1/1.12);},{passive:false});
+    let drag=null;
+    svg.addEventListener('pointerdown',e=>{if(e.target.closest('.node-hit,.point')||e.button!==0)return;drag={x:e.clientX,y:e.clientY,v:[...state.views[key]]};svg.setPointerCapture(e.pointerId);svg.style.cursor='grabbing';$('tooltip').hidden=true;});
+    svg.addEventListener('pointermove',e=>{if(!drag)return;const rect=svg.getBoundingClientRect(),scale=Math.min(rect.width/drag.v[2],rect.height/drag.v[3]);state.views[key]=[drag.v[0]-(e.clientX-drag.x)/scale,drag.v[1]-(e.clientY-drag.y)/scale,drag.v[2],drag.v[3]];applyViews();});
+    function endDrag(){drag=null;svg.style.cursor='';}svg.addEventListener('pointerup',endDrag);svg.addEventListener('pointercancel',endDrag);
+  });
+  document.querySelectorAll('[data-zoom]').forEach(b=>b.addEventListener('click',()=>{const[key,op]=b.dataset.zoom.split(':');if(op==='reset'){state.views[key]=[...baseViews[key]];applyViews();}else zoom(key,op==='in'?.8:1.25);}));
+  function download(text,name,type){const url=URL.createObjectURL(new Blob([text],{type})),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);}
+  const safeJSON=value=>JSON.stringify(value).replace(/</g,'\\u003c');
+  $('save-html').addEventListener('click',()=>{
+    const clone=document.documentElement.cloneNode(true);clone.querySelector('#tree-data').textContent=safeJSON(DATA);clone.querySelector('#view-state').textContent=safeJSON(state);clone.querySelector('#tooltip').hidden=true;clone.querySelector('#status').textContent='';
+    download('<!doctype html>\n'+clone.outerHTML,'geinj_tree_coords_selected.html','text/html;charset=utf-8');$('status').textContent='Saved with the current selection, colors and view settings.';
+  });
+  $('download-ids').addEventListener('click',()=>{const s=selectedTips();if(!s.size){$('status').textContent='Select at least one tip first.';return;}download(tips.filter(n=>s.has(n.tip_id)).map(n=>n.tip_id).join('\n')+'\n','selected_tip_ids.txt','text/plain;charset=utf-8');});
+  $('select-all').addEventListener('click',()=>{state.selected=[DATA.tree.id];$('status').textContent='';render();});
+  $('clear-selection').addEventListener('click',()=>{state.selected=[];$('status').textContent='';render();});
+  [['additive','additive'],['branch-lengths','branchLengths'],['hide-tip-names','hideTipNames'],['flip-x','flipX'],['flip-y','flipY'],['swap-xy','swapXY']].forEach(([id,key])=>{$(id).checked=state[key];$(id).addEventListener('change',e=>{state[key]=e.target.checked;$('tooltip').hidden=true;render();});});
+  $('point-size').value=state.pointSize;
+  $('point-size').addEventListener('input',e=>{const size=Number(e.target.value);if(!Number.isFinite(size)||size<=0)return;state.pointSize=size;renderCoords(selectedTips());});
+  $('legend').replaceChildren();
+  [...DATA.groups,{label:'Unselected',color:'#e0e0e0'}].forEach((group,i)=>{const s=document.createElement('span'),dot=document.createElement('i');dot.className='swatch'+(i===DATA.groups.length?' unselected-swatch':'');dot.style.backgroundColor=group.color;s.append(dot,document.createTextNode(group.label));$('legend').append(s);});
+  render();
+})();
+</script>
+</body>
+</html>
