@@ -14,9 +14,6 @@ Python 3.9+, with `anndata`, `biopython`, `matplotlib`, `numpy`, `pandas`, and `
 conda create -n test_geinj -c conda-forge python=3.12 pip git make cxx-compiler -y
 conda activate test_geinj
 
-mkdir -p ~/test_geinj_work
-cd ~/test_geinj_work
-
 git clone https://github.com/RuiyingChenBioinfo/GEI-NJ.git
 cd GEI-NJ
 
