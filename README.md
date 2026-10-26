@@ -11,7 +11,7 @@ Version **0.2.0.5** uses SNV filtering, binary ALT representation, zero-filling,
 Python 3.9+, with `anndata`, `biopython`, `matplotlib`, `numpy`, `pandas`, and `scipy`. These Python dependencies are installed automatically. The coordinate viewer uses bundled HTML and JavaScript; it requires no extra Python package or online JavaScript service.
 
 ```bash
-conda create -n test_geinj -c conda-forge python=3.11 pip git make cxx-compiler -y
+conda create -n test_geinj -c conda-forge python=3.12 pip git make cxx-compiler -y
 conda activate test_geinj
 
 mkdir -p ~/test_geinj_work
