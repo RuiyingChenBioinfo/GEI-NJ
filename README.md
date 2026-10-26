@@ -8,10 +8,20 @@ Version **0.2.0.5** uses SNV filtering, binary ALT representation, zero-filling,
 
 ## Requirements and installation
 
-Python 3.9+, with `anndata`, `biopython`, `matplotlib`, `numpy`, `pandas`, and `scipy`. These Python dependencies are installed automatically. The coordinate viewer uses bundled HTML and JavaScript; it requires no extra Python package or online JavaScript service. Install the Python package from this source directory:
+Python 3.9+, with `anndata`, `biopython`, `matplotlib`, `numpy`, `pandas`, and `scipy`. These Python dependencies are installed automatically. The coordinate viewer uses bundled HTML and JavaScript; it requires no extra Python package or online JavaScript service.
 
 ```bash
+conda create -n test_geinj -c conda-forge python=3.11 pip git make cxx-compiler -y
+conda activate test_geinj
+
+mkdir -p ~/test_geinj_work
+cd ~/test_geinj_work
+
+git clone https://github.com/RuiyingChenBioinfo/GEI-NJ.git
+cd GEI-NJ
+
 python -m pip install .
+
 ```
 
 RapidNJ is a separate executable and must be on `PATH`, or supplied through `rapidnj_binary`. The benchmark and CI use [RapidNJ](https://github.com/somme89/rapidNJ) at the following pinned commit. On Linux or macOS with `git`, `make`, and a C++ compiler:
