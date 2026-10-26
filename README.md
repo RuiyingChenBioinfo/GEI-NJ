@@ -8,7 +8,7 @@ Version **0.2.0.5** uses SNV filtering, binary ALT representation, zero-filling,
 
 ## Requirements and installation
 
-Python 3.9+, with `anndata`, `biopython`, `matplotlib`, `numpy`, `pandas`, and `scipy`. These Python dependencies are installed automatically. The coordinate viewer uses bundled HTML and JavaScript; it requires no extra Python package or online JavaScript service.
+Python 3.9+, with `anndata`, `biopython`, `matplotlib`, `numpy`, `pandas`, and `scipy`. These Python dependencies are installed automatically. The coordinate viewer uses bundled HTML and JavaScript; it requires no extra Python package or online JavaScript service. To create a conenvironment and install GEI-NJ:
 
 ```bash
 conda create -n test_geinj -c conda-forge python=3.12 pip git make cxx-compiler -y
