@@ -226,7 +226,7 @@ python -m pytest
 
 ## Citations
 
-
+DOI: https://doi.org/10.5281/zenodo.23667310
 
 ## Contact
 
