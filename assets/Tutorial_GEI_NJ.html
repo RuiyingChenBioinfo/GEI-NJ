@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>GEI-NJ 0.2.0.5 tutorial</title><style>body{font-family:system-ui,-apple-system,sans-serif;line-height:1.65;color:#25313d;background:#fff;max-width:980px;margin:0 auto;padding:36px 24px}h1,h2,h3{line-height:1.25;color:#15384d}h2{margin-top:2em;border-bottom:1px solid #dbe3e8;padding-bottom:8px}a{color:#126482}pre{background:#f3f6f8;border:1px solid #dbe3e8;padding:16px;overflow:auto;border-radius:4px;line-height:1.5}code{font-family:ui-monospace,monospace;font-size:.93em}table{border-collapse:collapse;width:100%;margin:18px 0}th,td{border:1px solid #dbe3e8;padding:10px;text-align:left;vertical-align:top}th{background:#f3f6f8}.note{border-left:3px solid #126482;padding:4px 16px;background:#f3f8fa}nav{margin-bottom:30px}small{color:#526170}@media(max-width:640px){body{padding:20px 14px}table{font-size:.9em}}</style></head><body>
-<nav><a href="../README.md">GEI-NJ README</a> · <a href="Tutorial_GEI_NJ.html">Tutorial</a> · <a href="API.html">API reference</a></nav>
-<h1>GEI-NJ tutorial</h1><p>Version 0.2.0.5. This example uses matched SNV depth and ALT ratio matrices to construct a rooted cell relationship tree. Install the package and RapidNJ as described in the <a href="../README.md">README</a>.</p>
+<h1>GEI-NJ tutorial</h1><p>Version 0.2.0.5. This example uses matched SNV depth and ALT ratio matrices to construct a rooted cell relationship tree.</p>
 <h2>1. Load and validate the inputs</h2><pre><code>import anndata as ad
 from gei_nj import comb_depth_ratio, filter_snvs, assign_state, zero_filling, build_nj, view_tree_coords
 
@@ -57,5 +56,4 @@ tree_continuous = build_nj(
     do_plot=False,
     newick_path=&quot;continuous_tree.nwk&quot;,
 )</code></pre><p>This alternative uses the same filtering, zero-filling, L1, and WLS steps. It changes only the state representation. Preprocessing functions copy by default, so the filtered input can be reused. Original ratios remain in <code>X</code> and are used when changing the state representation. For this method, observed ratios are assigned directly as continuous states.</p>
-<p>For full parameter signatures, see the <a href="API.html">API reference</a>. For release checks and exact-version archiving, see <a href="../RELEASE.md">RELEASE.md</a>.</p>
 </body></html>
