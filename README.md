@@ -80,7 +80,7 @@ tree = build_nj(
 )
 ```
 
-A complete [example](https://github.com/RuiyingChenBioinfo/Analysis_Scripts_for_GEI-NJ_Manuscript/blob/main/02.Nodule_analysis/GEI-NJ_analysis_on_nodule_data.ipynb) and the [relevant input data](https://zenodo.org/records/23655047) are provided. Function signatures and parameter descriptions are provided in the [API reference](./assets/API.html).
+A complete [example](https://github.com/RuiyingChenBioinfo/Analysis_Scripts_for_GEI-NJ_Manuscript/blob/main/02.Nodule_analysis/GEI-NJ_analysis_on_nodule_data.ipynb) and the [relevant input data](https://zenodo.org/records/23665786) are provided. Function signatures and parameter descriptions are provided in the [API reference](./assets/API.html).
 
 ### SNV filtering
 
