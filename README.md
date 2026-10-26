@@ -1,5 +1,7 @@
 # GEI-NJ
 
+![GEI-NJ schematic](./assets/Schematic_of_GEI-NJ.png)
+
 GEI-NJ provides an integrated Python workflow for cell relationship analysis from matched SNV ratio and sequencing-depth `AnnData` matrices.
 
 Version **0.2.0.5** uses SNV filtering, binary ALT representation, zero-filling, Manhattan L1 distances, RapidNJ tree construction, and weighted least squares (WLS) rooting. Continuous ALT ratios are also supported. `view_tree_coords()` links the rooted tree to user-defined spatial, PCA, or UMAP coordinates in an offline interactive HTML file.
@@ -80,7 +82,7 @@ tree = build_nj(
 )
 ```
 
-A complete [example](https://github.com/RuiyingChenBioinfo/Analysis_Scripts_for_GEI-NJ_Manuscript/blob/main/02.Nodule_analysis/GEI-NJ_analysis_on_nodule_data.ipynb) and the [relevant input data](https://zenodo.org/records/23665786) are provided. Function signatures and parameter descriptions are provided in the [API reference](./assets/API.html).
+A complete [example](https://github.com/RuiyingChenBioinfo/Analysis_Scripts_for_GEI-NJ_Manuscript/blob/main/02.Nodule_analysis/GEI-NJ_analysis_on_nodule_data.ipynb) and the [relevant input data](https://zenodo.org/records/23665786) are provided. A [brief tutorial](./assets/Tutorial_GEI_NJ.html) is also provided. Function signatures and parameter descriptions are provided in the [API reference](./assets/API.html).
 
 ### SNV filtering
 
