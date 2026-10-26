@@ -23,7 +23,7 @@ python -m pip install .
 
 ```
 
-RapidNJ is a separate executable and must be on `PATH`, or supplied through `rapidnj_binary`. The benchmark and continuous integration (CI) use [RapidNJ](https://github.com/somme89/rapidNJ) at the following pinned commit. On Linux or macOS with `git`, `make`, and a C++ compiler:
+RapidNJ is a separate executable and must be on `PATH`, or supplied through `rapidnj_binary`. To install the tested RapidNJ version, use the following commands on Linux or macOS with [RapidNJ](https://github.com/somme89/rapidNJ) at the following pinned commit. On Linux or macOS with `git`, `make`, and a C++ compiler:
 
 ```bash
 git clone https://github.com/somme89/rapidNJ.git
