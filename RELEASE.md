@@ -1,7 +1,5 @@
 # Release GEI-NJ_v0.2.0.5
 
-This source package prepares version 0.2.0.5. A published GitHub release, a successful remote CI run, and a Zenodo DOI are not implied by these files.
-
 1. Review the source, tests, documentation, and input encoding. Confirm that `pyproject.toml`, `gei_nj.__version__`, and `CITATION.cff` all report `0.2.0.5`.
 2. Install the pinned RapidNJ commit shown in the README. Run:
 
