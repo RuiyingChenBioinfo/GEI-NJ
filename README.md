@@ -6,7 +6,7 @@ GEI-NJ provides an integrated Python workflow for cell relationship analysis fro
 
 Version **0.2.0.5** uses SNV filtering, binary ALT representation, zero-filling, Manhattan L1 distances, RapidNJ tree construction, and weighted least squares (WLS) rooting. Continuous ALT ratios are also supported. `view_tree_coords()` links the rooted tree to user-defined spatial, PCA, or UMAP coordinates in an offline interactive HTML file.
 
-**Note:** GEI-NJ does not perform SNV calling. Use [GATK Haplotype Caller](https://gatk.broadinstitute.org/hc/en-us/articles/360037225632-HaplotypeCaller), [LineMut Call](https://github.com/RuiyingChenBioinfo/LineMut_v0.2.0) or other suitable workflows to generate the SNV ratio and depth inputs.
+**Note:** GEI-NJ does not perform SNV calling. Use [GATK HaplotypeCaller](https://gatk.broadinstitute.org/hc/en-us/articles/360037225632-HaplotypeCaller), [LineMut Call](https://github.com/RuiyingChenBioinfo/LineMut_v0.2.0) or other suitable workflows to generate the SNV ratio and depth inputs.
 
 ## Requirements and installation
 
