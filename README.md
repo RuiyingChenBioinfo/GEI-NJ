@@ -23,7 +23,7 @@ python -m pip install .
 
 ```
 
-RapidNJ is a separate executable and must be on `PATH`, or supplied through `rapidnj_binary`. To install the tested RapidNJ version, use the following commands on Linux or macOS with [RapidNJ](https://github.com/somme89/rapidNJ) at the following pinned commit. On Linux or macOS with `git`, `make`, and a C++ compiler:
+RapidNJ must be available on PATH or specified through rapidnj_binary. On Linux or macOS, install the tested version at the pinned commit below using git, make, and a C++ compiler:
 
 ```bash
 git clone https://github.com/somme89/rapidNJ.git
@@ -82,7 +82,7 @@ tree = build_nj(
 )
 ```
 
-A complete [example](https://github.com/RuiyingChenBioinfo/Analysis_Scripts_for_GEI-NJ_Manuscript/blob/main/02.Nodule_analysis/GEI-NJ_analysis_on_nodule_data.ipynb) and the [relevant input data](https://zenodo.org/records/23665786) are provided. A [brief tutorial](./assets/Tutorial_GEI_NJ.html) is also provided. Function signatures and parameter descriptions are provided in the [API reference](./assets/API.html).
+A complete [example](https://github.com/RuiyingChenBioinfo/Analysis_Scripts_for_GEI-NJ_Manuscript/blob/main/02.Nodule_analysis/GEI-NJ_analysis_on_nodule_data.ipynb) and the [relevant input data](https://zenodo.org/records/23665786) are provided. A [brief tutorial](./assets/Tutorial_GEI_NJ.html) is also provided. Function signatures and parameter descriptions are provided in the [API reference](./assets/API.html). After cloning or downloading the repository, open assets/Tutorial_GEI_NJ.html and assets/API.html in a web browser.
 
 ### SNV filtering
 
